@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import authRoutes from "./modules/auth/auth.routes.js";
+import jobRoutes from "./modules/jobs/jobs.routes.js";
 import authMiddleware from "./middleware/auth.js";
 import roleMiddleware from "./middleware/role.js";
 
@@ -21,12 +22,7 @@ app.get('/health', (req, res) => {
         uptime: process.uptime(),
     })
 })
-//test rbac
-app.get("/api/test/developer-only", authMiddleware, roleMiddleware("DEVELOPER"), (req, res) => {
-    res.json({
-        success: true, message: "You are a developer", user: req.user,
-    })
-})
+app.use("/api/jobs", jobRoutes);
 
 //404 handler
 
