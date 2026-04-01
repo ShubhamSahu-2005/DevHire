@@ -2,11 +2,17 @@ import { eq, ilike, and, gte, lte, sql } from "drizzle-orm";
 import db from "../../config/db.js";
 
 import { jobs } from "./jobs.schema.js";
-
+import redis from "../../config/redis.js";
 //create job
 
 export const createJob = async ({ companyId, title, description, skills, salary, location }) => {
     const [newJob] = await db.insert(jobs).values({ companyId, title, description, skills, salary, location, status: "OPEN" }).returning();
+
+    const keys = await redis.keys("jobs:*");
+    if (keys.length > 0) {
+        await redis.del(...keys);
+        console.log(`[CACHE] INVALIDATED — ${keys.length} job cache entries cleared`)
+    }
 
     return newJob;
 
@@ -19,6 +25,14 @@ export const createJob = async ({ companyId, title, description, skills, salary,
 
 
 export const getAllJobs = async ({ location, skills, minSalary, maxSalary, page = 1, limit = 10 }) => {
+
+    const cacheKey = `jobs:${location || "all"}:${skills || "all"}:${minSalary || 0}:${maxSalary || 999999}:page${page}:limit${limit}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+        console.log(`[CACHE ] HIT--${cacheKey}`);
+        return JSON.parse(cached);
+    }
+    console.log(`[CACHE] Miss-- Querying DB `)
     const filters = [eq(jobs.status, 'OPEN')];
     if (location) {
         filters.push(ilike(jobs.location, `%${location}`));
@@ -38,7 +52,7 @@ export const getAllJobs = async ({ location, skills, minSalary, maxSalary, page 
     const allJobs = await db.select().from(jobs).where(and(...filters)).limit(parseInt(limit)).offset(offset);
 
     const [{ count }] = await db.select({ count: sql`count(*)` }).from(jobs).where(and(...filters));
-    return {
+    const result = {
         data: allJobs,
         pagination: {
             page: parseInt(page),
@@ -48,7 +62,9 @@ export const getAllJobs = async ({ location, skills, minSalary, maxSalary, page 
 
         }
     }
-
+    await redis.set(cacheKey, JSON.stringify(result), "EX", 300);
+    console.log(`[CACHE] set-- ${cacheKey} -TTL 300s`);
+    return result;
 
 
 

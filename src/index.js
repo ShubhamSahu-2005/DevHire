@@ -2,8 +2,10 @@ import "dotenv/config";
 import express from "express";
 import authRoutes from "./modules/auth/auth.routes.js";
 import jobRoutes from "./modules/jobs/jobs.routes.js";
+import applicationRoutes from "./modules/applications/applications.routes.js";
 import authMiddleware from "./middleware/auth.js";
 import roleMiddleware from "./middleware/role.js";
+import "./config/redis.js"
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +15,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/auth", authRoutes);
+app.use("/api", applicationRoutes);
 
 //Health Check
 app.get('/health', (req, res) => {
