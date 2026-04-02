@@ -1,7 +1,10 @@
 import { eq, and, ne } from "drizzle-orm";
+import { notifyCompany } from "../../config/socket.js";
 import db from "../../config/db.js"
 import { applications } from "./applications.schema.js";
 import { jobs } from "../jobs/jobs.schema.js";
+import { users } from "../auth/auth.schema.js";
+import { publishMessage, TOPICS } from "../../config/kafkaProducer.js";
 
 
 export const applyToJob = async (jobId, developerId) => {
@@ -25,6 +28,20 @@ export const applyToJob = async (jobId, developerId) => {
         throw error;
     }
     const [newApplication] = await db.insert(applications).values({ jobId, developerId, status: "PENDING" }).returning();
+    const [developer] = await db.select().from(users).where(eq(users.id, developerId));
+    notifyCompany(job.companyId, {
+        type: "NEW_APPLICATION",
+        message: `${developer.name} applied for your ${job.title}`,
+        applicantName: developer.name,
+        jobTitle: job.title,
+        applicationId: newApplication.id,
+        timestamp: new Date().toISOString(),
+    })
+    await publishMessage(TOPICS.APPLICATION_SUBMITTED, {
+        companyId: job.companyId,
+        developerName: developer.name,
+        jobTitle: job.title,
+    })
     return { application: newApplication, job };
 
 
@@ -66,6 +83,14 @@ export const updateApplicationStatus = async (applicationId, companyId, status) 
 
     }
     const [updated] = await db.update(applications).set({ status }).where(eq(applications.id, applicationId)).returning();
+    const [developer] = await db.select().from(users).where(eq(users.id, application.developerId));
+    const [company] = await db.select().from(users).where(eq(users.id, job.companyId));
+    await publishMessage(TOPICS.APPLICATION_STATUS_UPDATED, {
+        developerId: application.developerId,
+        jobTitle: job.title,
+        status,
+        companyName: company.name
+    })
     return { application: updated, job };
 }
 

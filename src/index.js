@@ -1,5 +1,9 @@
 import "dotenv/config";
 import express from "express";
+import http from "http";
+import { initWebSocket } from "./config/socket.js";
+import { initConsumer } from "./config/kafkaConsumer.js";
+import { initProducer } from "./config/kafkaProducer.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import jobRoutes from "./modules/jobs/jobs.routes.js";
 import applicationRoutes from "./modules/applications/applications.routes.js";
@@ -47,11 +51,19 @@ app.use((err, req, res, next) => {
         message: err.message || "Internal Server error"
     })
 })
+const server = http.createServer(app);
+initWebSocket(server);
+const startServer = async () => {
+    await initProducer();
+    await initConsumer();
+
+}
 
 //start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`[Server]  DevHire is running on ${PORT}`);
     console.log(`[Server ] Health Check :https://localhost:${PORT}/health`)
 
 
 })
+startServer()
