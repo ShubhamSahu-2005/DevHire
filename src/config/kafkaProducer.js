@@ -26,8 +26,8 @@ export const publishMessage = async (topic, message) => {
         console.log(`[KAFKA] Message sent to topic ${topic}`)
 
     } catch (error) {
-        console.log(`[KAFKA] Failed to send message to topic ${topic}`)
-        throw error;
+        console.log(`[KAFKA] Failed to send message to topic ${topic} - Ignoring for now`)
+        // throw error;
 
     }
 }
