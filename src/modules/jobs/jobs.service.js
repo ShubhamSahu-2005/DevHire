@@ -102,6 +102,12 @@ export const updateJob = async (id, companyId, updates) => {
         throw error;
     }
     const updated = await db.update(jobs).set(updates).where(eq(jobs.id, id)).returning();
+    await Promise.all({
+        redis.del(`job:${id}`),
+        redis.del(`jobs:company:${job.company_id}`),              
+                      
+    })
+    
     return updated;
 
 }
